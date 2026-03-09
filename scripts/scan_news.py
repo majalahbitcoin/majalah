@@ -22,26 +22,23 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.error import URLError
-import google.generativeai as genai
+from google import genai
 
 DATA_FILE = Path(__file__).parent.parent / "data" / "news.json"
 MAX_ARTICLES = 200
 
 # ── LAYER 1: RSS FEED SELECTION ───────────────────────────────────────────────
-# Bitcoin Magazine and Bitcoin-specific feeds first.
-# CoinDesk/Cointelegraph included but will be filtered heavily in Layer 2.
+# Fetch up to 30 recent items per feed (no time filter) — dedupe by URL later
 RSS_FEEDS = [
-    # Pure Bitcoin publications — almost everything here is relevant
+    # Pure Bitcoin publications
     ("Bitcoin Magazine",  "https://bitcoinmagazine.com/.rss/full/"),
     ("Bitcoin.com News",  "https://news.bitcoin.com/feed/"),
 
-    # Mixed crypto — needs filtering, but carries important Bitcoin news
+    # Mixed crypto — filtered heavily by Layer 2
     ("CoinDesk",          "https://www.coindesk.com/arc/outboundfeeds/rss/"),
-    ("The Block",         "https://www.theblock.co/rss.xml"),
-    ("Decrypt",           "https://decrypt.co/feed"),
-
-    # Mainstream financial — only Bitcoin stories pass filter
     ("Cointelegraph",     "https://cointelegraph.com/rss"),
+    ("Decrypt",           "https://decrypt.co/feed"),
+    ("The Block",         "https://www.theblock.co/rss.xml"),
 ]
 
 HEADERS = {
@@ -49,7 +46,6 @@ HEADERS = {
 }
 
 # ── LAYER 2: KEYWORD FILTER ───────────────────────────────────────────────────
-# An article MUST contain at least one BITCOIN keyword
 BITCOIN_KEYWORDS = {
     "bitcoin", "btc", "satoshi", "sats", "lightning network",
     "lightning payment", "taproot", "ordinals", "runes protocol",
@@ -59,8 +55,6 @@ BITCOIN_KEYWORDS = {
     "blockstream", "river financial", "swan bitcoin", "strike app",
 }
 
-# If an article contains ANY of these, it's NOT about Bitcoin — reject it
-# even if it also mentions Bitcoin in passing
 ALTCOIN_REJECTION_KEYWORDS = {
     "ethereum", " eth ", "solana", " sol ", "ripple", " xrp ",
     "cardano", " ada ", "dogecoin", "shiba", "avalanche", " avax",
@@ -72,34 +66,23 @@ ALTCOIN_REJECTION_KEYWORDS = {
 
 
 def is_bitcoin_article(title: str, description: str) -> bool:
-    """
-    Returns True only if the article is genuinely about Bitcoin.
-    Logic:
-      - Combined text must contain at least one Bitcoin keyword
-      - Must NOT be primarily about an altcoin/DeFi/NFT topic
-    """
     combined = (title + " " + description).lower()
-
-    # Must have at least one Bitcoin keyword
     has_bitcoin = any(kw in combined for kw in BITCOIN_KEYWORDS)
     if not has_bitcoin:
         return False
-
-    # Reject if altcoin keywords appear in the TITLE (title = main topic)
     title_lower = title.lower()
     is_altcoin_story = any(kw in title_lower for kw in ALTCOIN_REJECTION_KEYWORDS)
     if is_altcoin_story:
         return False
-
     return True
 
 
-def fetch_rss(name: str, url: str, since: datetime) -> list[dict]:
-    """Fetch RSS feed and return only Bitcoin-relevant items newer than `since`."""
+def fetch_rss(name: str, url: str, already_seen_urls: set) -> list[dict]:
+    """Fetch RSS feed — return Bitcoin articles not already in our database."""
     items = []
     try:
         req = Request(url, headers=HEADERS)
-        with urlopen(req, timeout=15) as resp:
+        with urlopen(req, timeout=20) as resp:
             content = resp.read()
         root = ET.fromstring(content)
 
@@ -110,7 +93,7 @@ def fetch_rss(name: str, url: str, since: datetime) -> list[dict]:
         total_seen = 0
         total_passed = 0
 
-        for entry in entries[:20]:
+        for entry in entries[:30]:
             title_el = entry.find("title")
             title = title_el.text.strip() if title_el is not None and title_el.text else ""
             if not title:
@@ -124,13 +107,14 @@ def fetch_rss(name: str, url: str, since: datetime) -> list[dict]:
             link_el = entry.find("link")
             link = ""
             if link_el is not None:
-                link = link_el.text or link_el.get("href", "")
+                link = (link_el.text or link_el.get("href", "")).strip()
 
             pub_el = entry.find("pubDate") or entry.find("atom:published", ns)
             pub_str = pub_el.text.strip() if pub_el is not None and pub_el.text else ""
-            pub_dt = parse_date(pub_str)
+            pub_dt = parse_date(pub_str) or datetime.now(timezone.utc)
 
-            if not pub_dt or pub_dt <= since:
+            # Skip articles we already stored
+            if link and link in already_seen_urls:
                 continue
 
             total_seen += 1
@@ -144,20 +128,20 @@ def fetch_rss(name: str, url: str, since: datetime) -> list[dict]:
             items.append({
                 "title": title,
                 "description": desc,
-                "link": link.strip(),
+                "link": link,
                 "source": name,
                 "published": pub_dt.isoformat(),
             })
 
-        print(f"  {name}: {total_passed}/{total_seen} passed Bitcoin filter")
+        print(f"  {name}: {total_passed}/{total_seen} new Bitcoin articles")
 
     except (URLError, ET.ParseError, Exception) as e:
-        print(f"  ⚠ Failed to fetch {name}: {e}")
+        print(f"  WARNING: Failed to fetch {name}: {e}")
 
     return items
 
 
-def parse_date(date_str: str) -> datetime | None:
+def parse_date(date_str: str):
     if not date_str:
         return None
     formats = [
@@ -177,13 +161,12 @@ def parse_date(date_str: str) -> datetime | None:
     return None
 
 
-def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_end: datetime) -> dict | None:
+def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_end: datetime):
     """Send Bitcoin-only headlines to Gemini to write one original Malay article."""
     if not bitcoin_articles:
         return None
 
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     headlines_block = "\n".join(
         f'- [{a["source"]}] {a["title"]} — {a["description"]}'
@@ -220,25 +203,27 @@ Balas HANYA dengan JSON ini (tiada markdown, tiada backticks):
 }}"""
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
         text = response.text.strip()
         text = re.sub(r"^```json\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
 
         parsed = json.loads(text)
 
-        # Gemini told us to skip — no relevant Bitcoin news this window
         if parsed.get("titleMs", "").upper().startswith("SKIP"):
             print("  Gemini: no relevant Bitcoin news this window, skipping.")
             return None
 
         if not parsed.get("titleMs") or not parsed.get("bodyMs"):
-            raise ValueError("Missing required fields")
+            raise ValueError("Missing required fields in Gemini response")
 
         return parsed
 
     except Exception as e:
-        print(f"  ⚠ Gemini error: {e}")
+        print(f"  ERROR in Gemini call: {e}")
         return None
 
 
@@ -246,19 +231,28 @@ def main():
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=4, minutes=30)
 
-    print(f"[{now.isoformat()}] Scanning for BITCOIN-ONLY news since {since.isoformat()}")
-    print(f"Layer 2 filter: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_REJECTION_KEYWORDS)} rejection keywords\n")
+    print(f"[{now.isoformat()}] Scanning for BITCOIN-ONLY news")
+    print(f"Layer 2: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_REJECTION_KEYWORDS)} rejection keywords\n")
+
+    # Load existing articles to avoid duplicates
+    existing = json.loads(DATA_FILE.read_text()) if DATA_FILE.exists() else []
+
+    # Collect all URLs we already stored (from raw article links in past digests)
+    already_seen = set()
+    for item in existing:
+        for link in item.get("articleLinks", []):
+            already_seen.add(link)
 
     # 1. Fetch + filter
     bitcoin_articles = []
     for name, url in RSS_FEEDS:
-        items = fetch_rss(name, url, since)
+        items = fetch_rss(name, url, already_seen)
         bitcoin_articles.extend(items)
 
-    print(f"\nBitcoin-relevant articles: {len(bitcoin_articles)}")
+    print(f"\nNew Bitcoin articles found: {len(bitcoin_articles)}")
 
     if not bitcoin_articles:
-        print("No Bitcoin news found this window. Nothing to publish.")
+        print("No new Bitcoin news found. Nothing to publish.")
         return
 
     print("Sending to Gemini for Malay digest...")
@@ -277,19 +271,19 @@ def main():
         "bodyMs": digest["bodyMs"].replace("\\n\\n", "\n\n"),
         "sources": digest.get("sources", []),
         "rawCount": len(bitcoin_articles),
+        "articleLinks": [a["link"] for a in bitcoin_articles],
         "periodStart": since.isoformat(),
         "periodEnd": now.isoformat(),
         "datetime": now.isoformat(),
         "scannedAt": now.isoformat(),
     }
 
-    print(f"\n✓ Published: {item['titleMs']}")
+    print(f"\nPublished: {item['titleMs']}")
 
-    existing = json.loads(DATA_FILE.read_text()) if DATA_FILE.exists() else []
     updated = [item] + existing
     updated = updated[:MAX_ARTICLES]
     DATA_FILE.write_text(json.dumps(updated, ensure_ascii=False, indent=2))
-    print(f"Saved. Total digests in library: {len(updated)}")
+    print(f"Saved. Total digests: {len(updated)}")
 
 
 if __name__ == "__main__":
