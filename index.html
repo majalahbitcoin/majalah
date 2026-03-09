@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Majalah Bitcoin — Berita Bitcoin dalam Bahasa Melayu</title>
+<meta name="description" content="Berita Bitcoin terkini diringkaskan dan ditulis dalam Bahasa Melayu setiap 4 jam.">
+<meta property="og:title" content="Majalah Bitcoin">
+<meta property="og:description" content="Berita Bitcoin dalam Bahasa Melayu">
+<meta property="og:url" content="https://majalahbitcoin.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #F7931A;
+  --gold-dim: #c4720e;
+  --bg: #0a0a08;
+  --bg2: #111110;
+  --bg3: #1a1a17;
+  --border: #2a2a24;
+  --text: #e8e4d8;
+  --text-dim: #8a8478;
+  --text-muted: #4a4840;
+  --red: #e05a3a;
+  --green: #4caf7a;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Source Serif 4',Georgia,serif;font-size:17px;line-height:1.65;min-height:100vh}
+
+/* ── NAV ── */
+nav{border-bottom:1px solid var(--border);background:rgba(10,10,8,0.96);backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{font-family:'Playfair Display',serif;font-weight:900;font-size:1.45rem;color:var(--gold);cursor:pointer;letter-spacing:-0.5px;user-select:none;line-height:1}
+.logo small{display:block;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);font-weight:400;letter-spacing:0.15em;text-transform:uppercase;margin-top:2px}
+.nav-links{display:flex;gap:0.25rem}
+.nav-btn{background:none;border:none;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:0.7rem;padding:6px 14px;cursor:pointer;border-radius:4px;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.2s}
+.nav-btn:hover{background:var(--bg3);color:var(--text)}
+.nav-btn.active{background:var(--bg3);color:var(--gold)}
+.status-pill{font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--text-muted);display:flex;align-items:center;gap:6px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);flex-shrink:0}
+.dot.live{background:var(--green);animation:pulse 2s infinite}
+
+/* ── TICKER ── */
+.ticker{background:var(--gold);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:0.68rem;padding:7px 0;overflow:hidden;white-space:nowrap;font-weight:500;letter-spacing:0.02em;cursor:default}
+.ticker-track{display:inline-block;animation:ticker-scroll 90s linear infinite}
+.ticker-track:hover{animation-play-state:paused}
+
+/* ── PAGES ── */
+.page{display:none}
+.page.active{display:block;animation:fadein 0.25s ease}
+
+/* ── HOME MASTHEAD ── */
+.masthead{max-width:1100px;margin:0 auto;padding:3.5rem 2rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;gap:2rem}
+.masthead h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.08;letter-spacing:-1px}
+.masthead h1 em{color:var(--gold);font-style:italic}
+.masthead-sub{font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--text-muted);margin-top:0.6rem;letter-spacing:0.05em}
+
+/* ── BUTTONS ── */
+.btn{background:var(--gold);color:var(--bg);border:none;cursor:pointer;padding:10px 20px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;font-weight:500;border-radius:3px;transition:all 0.18s;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--gold-dim);transform:translateY(-1px)}
+.btn:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+
+/* ── NEWS LIST ── */
+.news-wrap{max-width:1100px;margin:0 auto;padding:0 2rem 4rem}
+.news-item{display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:start;border-bottom:1px solid var(--border);padding:1.75rem 0;cursor:pointer;transition:background 0.15s,padding 0.15s,margin 0.15s}
+.news-item:hover{background:var(--bg2);margin:0 -2rem;padding-left:2rem;padding-right:2rem}
+.news-item:first-of-type{border-top:1px solid var(--border)}
+.news-eyebrow{font-family:'JetBrains Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--gold);margin-bottom:0.4rem;display:flex;align-items:center;gap:8px}
+.news-eyebrow .sources{color:var(--text-muted)}
+.news-headline{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;line-height:1.2;color:var(--text);margin-bottom:0.5rem;transition:color 0.15s}
+.news-item:hover .news-headline{color:var(--gold)}
+.news-summary{color:var(--text-dim);font-size:0.9rem;line-height:1.6;font-style:italic}
+.news-ts{text-align:right;white-space:nowrap;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);line-height:2}
+.digest-badge{display:inline-block;background:rgba(247,147,26,0.1);border:1px solid rgba(247,147,26,0.3);border-radius:3px;padding:2px 7px;font-size:0.58rem;color:var(--gold);letter-spacing:0.06em}
+
+/* ── DETAIL ── */
+.detail-wrap{max-width:720px;margin:0 auto;padding:3rem 2rem 5rem}
+.back-btn{font-family:'JetBrains Mono',monospace;font-size:0.67rem;color:var(--text-muted);cursor:pointer;margin-bottom:2.5rem;letter-spacing:0.05em;display:inline-flex;align-items:center;gap:6px;background:none;border:none;transition:color 0.2s}
+.back-btn:hover{color:var(--gold)}
+.detail-eyebrow{font-family:'JetBrains Mono',monospace;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--gold);margin-bottom:1rem}
+.detail-headline{font-family:'Playfair Display',serif;font-size:clamp(1.8rem,4vw,2.7rem);font-weight:900;line-height:1.1;margin-bottom:1.5rem;letter-spacing:-0.5px}
+.detail-meta{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text-muted);padding-bottom:2rem;margin-bottom:2.5rem;border-bottom:1px solid var(--border)}
+.detail-meta a{color:var(--gold);text-decoration:none}
+.detail-meta a:hover{text-decoration:underline}
+.ai-badge{display:inline-flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--text-muted);letter-spacing:0.04em}
+
+/* ── ARTICLE BODY ── */
+.article-body{font-size:1.05rem;line-height:1.82}
+.article-body p{margin-bottom:1.3rem}
+.article-body h2{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin:2.5rem 0 0.75rem;color:var(--text)}
+.article-body h3{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;margin:2rem 0 0.6rem;color:var(--text)}
+.article-body img{width:100%;border-radius:5px;margin:1.75rem 0;border:1px solid var(--border);display:block}
+.article-body iframe{width:100%;aspect-ratio:16/9;border:none;margin:1.75rem 0;border-radius:5px;display:block}
+.article-body blockquote{border-left:3px solid var(--gold);margin:1.5rem 0;padding:0.75rem 1.5rem;background:var(--bg2);border-radius:0 4px 4px 0;font-style:italic;color:var(--text-dim)}
+.article-body strong{color:var(--text)}
+.article-body a{color:var(--gold)}
+
+/* ── LIBRARY ── */
+.library-wrap{max-width:1100px;margin:0 auto;padding:0 2rem 4rem}
+.library-masthead{padding:3.5rem 0 2rem;border-bottom:1px solid var(--border);margin-bottom:2rem}
+.library-masthead h2{font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,2.8rem);font-weight:900}
+.library-masthead h2 em{color:var(--gold);font-style:italic}
+.add-form{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1.5rem;margin-bottom:2.5rem}
+.add-form-label{font-family:'JetBrains Mono',monospace;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:1rem;display:block}
+.input-row{display:flex;gap:0.75rem}
+.url-input{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;outline:none;transition:border-color 0.2s}
+.url-input:focus{border-color:var(--gold)}
+.url-input::placeholder{color:var(--text-muted)}
+.add-hint{margin-top:10px;font-size:0.75rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;line-height:1.6}
+.add-hint strong{color:var(--text-dim)}
+
+.article-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.5rem}
+.article-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;transition:border-color 0.2s,transform 0.2s}
+.article-card:hover{border-color:var(--gold);transform:translateY(-3px)}
+.card-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg3);display:block}
+.card-thumb-ph{width:100%;aspect-ratio:16/9;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:2.5rem;opacity:0.15}
+.card-body{padding:1.25rem}
+.card-source{font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem}
+.card-title{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;line-height:1.25;margin-bottom:0.4rem;color:var(--text)}
+.card-date{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted)}
+
+/* ── STATES ── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 2rem;gap:1.25rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.05em}
+.spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite}
+.empty{text-align:center;padding:5rem 2rem;color:var(--text-muted);font-style:italic}
+.empty strong{display:block;font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--text-dim);margin-bottom:0.6rem;font-style:normal}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:12px 18px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text);z-index:9999;max-width:320px;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.error{border-left-color:var(--red)}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ticker-scroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+@keyframes fadein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:680px){
+  nav{padding:0 1rem}
+  .masthead,.library-masthead{flex-direction:column;align-items:flex-start;padding:2rem 1rem 1.5rem}
+  .news-wrap,.library-wrap,.detail-wrap{padding-left:1rem;padding-right:1rem}
+  .news-item{grid-template-columns:1fr}
+  .news-ts{text-align:left}
+  .news-item:hover{margin:0 -1rem;padding-left:1rem;padding-right:1rem}
+  .input-row{flex-direction:column}
+  .article-grid{grid-template-columns:1fr}
+  .status-pill span{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo" onclick="goPage('home')">
+    Majalah Bitcoin
+    <small>berita bitcoin dalam bahasa melayu</small>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" id="btn-home"    onclick="goPage('home')">Berita</button>
+    <button class="nav-btn"        id="btn-library" onclick="goPage('library')">Artikel</button>
+  </div>
+  <div class="status-pill">
+    <div class="dot live" id="dot"></div>
+    <span id="status-txt">Memuatkan</span>
+  </div>
+</nav>
+
+<!-- TICKER -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track" id="ticker">
+    ₿ MAJALAH BITCOIN &nbsp;·&nbsp; Berita Bitcoin Terkini dalam Bahasa Melayu, dikemas kini setiap 4 jam &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    ₿ MAJALAH BITCOIN &nbsp;·&nbsp; Berita Bitcoin Terkini dalam Bahasa Melayu, dikemas kini setiap 4 jam
+  </div>
+</div>
+
+<!-- ══════════ HOME ══════════ -->
+<div class="page active" id="page-home">
+  <div class="masthead">
+    <div>
+      <h1>Berita Bitcoin<br><em>Terkini</em> dalam<br>Bahasa Melayu</h1>
+      <div class="masthead-sub" id="news-meta-label">Dikemas kini setiap 4 jam · dirangkum oleh AI</div>
+    </div>
+  </div>
+  <div class="news-wrap">
+    <div id="news-list">
+      <div class="loading"><div class="spinner"></div>Memuatkan berita...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ NEWS DETAIL ══════════ -->
+<div class="page" id="page-detail">
+  <div class="detail-wrap">
+    <button class="back-btn" onclick="goPage('home')">← Kembali ke Berita</button>
+    <div class="detail-eyebrow" id="d-eyebrow"></div>
+    <h1 class="detail-headline" id="d-headline"></h1>
+    <div class="detail-meta" id="d-meta"></div>
+    <div class="article-body" id="d-body"></div>
+  </div>
+</div>
+
+<!-- ══════════ LIBRARY ══════════ -->
+<div class="page" id="page-library">
+  <div class="library-wrap">
+    <div class="library-masthead">
+      <h2>Pustaka <em>Artikel</em></h2>
+      <div class="masthead-sub" id="art-meta-label" style="margin-top:0.5rem">Artikel pilihan, diterjemah penuh ke Bahasa Melayu</div>
+    </div>
+
+    <div class="add-form">
+      <span class="add-form-label">Tambah Artikel untuk Diterjemah</span>
+      <div class="input-row">
+        <input class="url-input" id="art-url" type="url" placeholder="https://coindesk.com/article/..." />
+        <button class="btn" onclick="triggerTranslate()">Terjemah</button>
+      </div>
+      <div class="add-hint" id="add-hint">
+        Tampal URL artikel Bitcoin yang anda suka → klik <strong>Terjemah</strong> → ikut arahan untuk memulakan GitHub Actions.
+      </div>
+    </div>
+
+    <div id="article-grid">
+      <div class="loading"><div class="spinner"></div>Memuatkan artikel...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ARTICLE DETAIL ══════════ -->
+<div class="page" id="page-article-detail">
+  <div class="detail-wrap">
+    <button class="back-btn" onclick="goPage('library')">← Kembali ke Pustaka</button>
+    <div class="detail-eyebrow">ARTIKEL TERJEMAHAN PENUH</div>
+    <h1 class="detail-headline" id="ad-headline"></h1>
+    <div class="detail-meta"  id="ad-meta"></div>
+    <div class="article-body" id="ad-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════
+//  CONFIG — update your GitHub username
+// ═══════════════════════════════════
+const REPO_OWNER = 'YOUR_GITHUB_USERNAME'; // ← change this
+const REPO_NAME  = 'majalahbitcoin';       // ← change if different
+
+// ═══════════════════════════════════
+//  STATE
+// ═══════════════════════════════════
+let news     = [];
+let articles = [];
+
+// ═══════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════
+async function boot() {
+  await Promise.all([loadNews(), loadArticles()]);
+  // Refresh every 10 minutes in case a new scan ran
+  setInterval(loadNews, 10 * 60 * 1000);
+}
+
+async function loadNews() {
+  try {
+    const r = await fetch('data/news.json?v=' + Date.now());
+    if (!r.ok) throw new Error(r.status);
+    news = await r.json();
+    renderNews();
+    buildTicker();
+    setStatus('Sedia', true);
+  } catch(e) {
+    setStatus('Ralat', false);
+    renderNews();
+  }
+}
+
+async function loadArticles() {
+  try {
+    const r = await fetch('data/articles.json?v=' + Date.now());
+    if (!r.ok) throw new Error(r.status);
+    articles = await r.json();
+    renderArticles();
+  } catch(e) {
+    renderArticles();
+  }
+}
+
+// ═══════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('btn-' + (id === 'home' || id === 'detail' ? 'home' : 'library')).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════
+//  NEWS
+// ═══════════════════════════════════
+function renderNews() {
+  const el    = document.getElementById('news-list');
+  const label = document.getElementById('news-meta-label');
+
+  if (!news.length) {
+    label.textContent = 'Belum ada berita — imbasan pertama akan dijalankan secara automatik';
+    el.innerHTML = `<div class="empty">
+      <strong>Tiada berita lagi</strong>
+      GitHub Actions akan mengimbas dan menulis ringkasan setiap 4 jam.<br>
+      Atau picu secara manual: GitHub → Actions → "Bitcoin News Scan" → Run workflow.
+    </div>`;
+    return;
+  }
+
+  const sorted = [...news].sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  label.textContent = `${sorted.length} ringkasan · Terkini ${timeAgo(sorted[0]?.scannedAt)}`;
+
+  el.innerHTML = sorted.map((item, i) => {
+    const srcList = (item.sources || []).slice(0,3).join(', ');
+    return `
+    <article class="news-item" onclick="showNews(${i})">
+      <div>
+        <div class="news-eyebrow">
+          <span class="digest-badge">RINGKASAN ${item.rawCount ? item.rawCount + ' BERITA' : ''}</span>
+          <span class="sources">${esc(srcList)}</span>
+        </div>
+        <div class="news-headline">${esc(item.titleMs)}</div>
+        <div class="news-summary">${esc(item.summaryMs)}</div>
+      </div>
+      <div class="news-ts">
+        <div>${fmtDate(item.datetime)}</div>
+        <div>${fmtTime(item.datetime)}</div>
+        <div style="margin-top:4px;color:var(--gold);font-size:0.58rem">UTC</div>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function showNews(idx) {
+  const sorted = [...news].sort((a,b) => new Date(b.datetime) - new Date(a.datetime));
+  const item = sorted[idx];
+  if (!item) return;
+
+  const srcList = (item.sources || []).join(', ');
+  document.getElementById('d-eyebrow').textContent = `RINGKASAN BERITA · ${fmtDate(item.datetime)}`;
+  document.getElementById('d-headline').textContent = item.titleMs;
+  document.getElementById('d-meta').innerHTML = `
+    <span>📅 ${fmtDate(item.datetime)}, ${fmtTime(item.datetime)} UTC</span>
+    <span>📰 Sumber: ${esc(srcList || '—')}</span>
+    ${item.rawCount ? `<span>🔢 ${item.rawCount} artikel diringkaskan</span>` : ''}
+    <span class="ai-badge">🤖 Ditulis AI dalam BM</span>
+  `;
+
+  // Convert plain text body to paragraphs if needed
+  const body = item.bodyMs || item.fullSummaryMs || item.summaryMs || '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(body);
+  document.getElementById('d-body').innerHTML = hasHtml
+    ? body
+    : body.split(/\n\n+/).map(p => `<p>${esc(p)}</p>`).join('');
+
+  goPage('detail');
+}
+
+// ═══════════════════════════════════
+//  ARTICLES
+// ═══════════════════════════════════
+function renderArticles() {
+  const el    = document.getElementById('article-grid');
+  const label = document.getElementById('art-meta-label');
+
+  if (!articles.length) {
+    label.textContent = 'Tiada artikel lagi';
+    el.innerHTML = `<div class="empty">
+      <strong>Pustaka kosong</strong>
+      Tampal URL artikel pilihan anda di atas dan klik Terjemah.
+    </div>`;
+    return;
+  }
+
+  label.textContent = `${articles.length} artikel tersimpan`;
+  const sorted = [...articles].sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt));
+
+  el.innerHTML = `<div class="article-grid">${sorted.map((a, i) => `
+    <div class="article-card" onclick="showArticle(${i})">
+      ${a.heroImage
+        ? `<img class="card-thumb" src="${esc(a.heroImage)}" loading="lazy" alt="${esc(a.titleMs)}" onerror="this.style.display='none'">`
+        : `<div class="card-thumb-ph">₿</div>`}
+      <div class="card-body">
+        <div class="card-source">${esc(a.source || 'Artikel')}</div>
+        <div class="card-title">${esc(a.titleMs)}</div>
+        <div class="card-date">${fmtDate(a.addedAt)}</div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function showArticle(idx) {
+  const sorted = [...articles].sort((a,b) => new Date(b.addedAt) - new Date(a.addedAt));
+  const art = sorted[idx];
+  if (!art) return;
+  document.getElementById('ad-headline').textContent = art.titleMs;
+  document.getElementById('ad-meta').innerHTML = `
+    <span>📅 ${fmtDate(art.addedAt)}</span>
+    <span>🌐 Sumber: <a href="${esc(art.originalUrl)}" target="_blank" rel="noopener">${esc(art.source)}</a></span>
+    <span class="ai-badge">🤖 Terjemahan Penuh AI</span>
+  `;
+  document.getElementById('ad-body').innerHTML = art.bodyMs || '<p>Kandungan tidak tersedia.</p>';
+  goPage('article-detail');
+}
+
+// ═══════════════════════════════════
+//  TRANSLATE TRIGGER
+// ═══════════════════════════════════
+function triggerTranslate() {
+  const url = document.getElementById('art-url').value.trim();
+  if (!url || !url.startsWith('http')) { toast('Sila masukkan URL yang sah', true); return; }
+
+  const ghUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/workflows/translate.yml`;
+  navigator.clipboard.writeText(url).catch(() => {});
+
+  document.getElementById('add-hint').innerHTML = `
+    <span style="color:var(--green)">✓ URL disalin ke clipboard!</span><br><br>
+    Langkah seterusnya:<br>
+    1. Klik → <a href="${ghUrl}" target="_blank" rel="noopener" style="color:var(--gold)">Buka GitHub Actions</a><br>
+    2. Klik butang <strong>"Run workflow"</strong> (kanan atas)<br>
+    3. Tampal URL dalam kotak → klik <strong>"Run workflow"</strong><br>
+    4. Tunggu ~90 saat → muat semula halaman ini
+  `;
+  toast('URL disalin! Ikut arahan di atas.');
+}
+
+// ═══════════════════════════════════
+//  TICKER
+// ═══════════════════════════════════
+function buildTicker() {
+  if (!news.length) return;
+  const items = [...news].sort((a,b) => new Date(b.datetime) - new Date(a.datetime)).slice(0,6);
+  const txt = items.map(n => `₿ ${n.titleMs}`).join('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
+  document.getElementById('ticker').innerHTML = txt + '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' + txt;
+}
+
+// ═══════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════
+function setStatus(msg, live) {
+  document.getElementById('status-txt').textContent = msg;
+  document.getElementById('dot').className = 'dot' + (live ? ' live' : '');
+}
+
+function toast(msg, err) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (err ? ' error' : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = 'toast', 4000);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleDateString('ms-MY', {day:'numeric',month:'long',year:'numeric'});
+}
+
+function fmtTime(dt) {
+  if (!dt) return '';
+  return new Date(dt).toLocaleTimeString('ms-MY', {hour:'2-digit',minute:'2-digit'});
+}
+
+function timeAgo(dt) {
+  if (!dt) return '';
+  const m = Math.floor((Date.now() - new Date(dt)) / 60000);
+  if (m < 1)  return 'baru sahaja';
+  if (m < 60) return `${m} minit lepas`;
+  const h = Math.floor(m/60);
+  if (h < 24) return `${h} jam lepas`;
+  return `${Math.floor(h/24)} hari lepas`;
+}
+
+boot();
+</script>
+</body>
+</html>
