@@ -28,13 +28,9 @@ DATA_FILE = Path(__file__).parent.parent / "data" / "news.json"
 MAX_ARTICLES = 200
 
 # ── LAYER 1: RSS FEED SELECTION ───────────────────────────────────────────────
-# Fetch up to 30 recent items per feed (no time filter) — dedupe by URL later
 RSS_FEEDS = [
-    # Pure Bitcoin publications
     ("Bitcoin Magazine",  "https://bitcoinmagazine.com/.rss/full/"),
     ("Bitcoin.com News",  "https://news.bitcoin.com/feed/"),
-
-    # Mixed crypto — filtered heavily by Layer 2
     ("CoinDesk",          "https://www.coindesk.com/arc/outboundfeeds/rss/"),
     ("Cointelegraph",     "https://cointelegraph.com/rss"),
     ("Decrypt",           "https://decrypt.co/feed"),
@@ -55,30 +51,31 @@ BITCOIN_KEYWORDS = {
     "blockstream", "river financial", "swan bitcoin", "strike app",
 }
 
-ALTCOIN_REJECTION_KEYWORDS = {
-    "ethereum", " eth ", "solana", " sol ", "ripple", " xrp ",
-    "cardano", " ada ", "dogecoin", "shiba", "avalanche", " avax",
-    "polkadot", " dot ", "chainlink", " link ", "uniswap", " uni ",
-    "defi protocol", "nft collection", "web3 game", "metaverse token",
-    "meme coin", "altcoin", "alt coin", "ether ", "vitalik",
-    "binance coin", " bnb ", "tron network", " trx ", "polygon matic",
+ALTCOIN_TITLE_KEYWORDS = {
+    "ethereum", "solana", "ripple", "xrp", "cardano",
+    "dogecoin", "shiba inu", "avalanche", "polkadot",
+    "uniswap", "vitalik", "binance coin", "tron network",
+    "polygon matic", "nft collection", "defi protocol",
+    "memecoin", "meme coin",
 }
 
 
 def is_bitcoin_article(title: str, description: str) -> bool:
+    title_lower = title.lower()
     combined = (title + " " + description).lower()
+
     has_bitcoin = any(kw in combined for kw in BITCOIN_KEYWORDS)
     if not has_bitcoin:
         return False
-    title_lower = title.lower()
-    is_altcoin_story = any(kw in title_lower for kw in ALTCOIN_REJECTION_KEYWORDS)
-    if is_altcoin_story:
-        return False
+
+    for kw in ALTCOIN_TITLE_KEYWORDS:
+        if title_lower.startswith(kw):
+            return False
+
     return True
 
 
 def fetch_rss(name: str, url: str, already_seen_urls: set) -> list[dict]:
-    """Fetch RSS feed — return Bitcoin articles not already in our database."""
     items = []
     try:
         req = Request(url, headers=HEADERS)
@@ -113,15 +110,13 @@ def fetch_rss(name: str, url: str, already_seen_urls: set) -> list[dict]:
             pub_str = pub_el.text.strip() if pub_el is not None and pub_el.text else ""
             pub_dt = parse_date(pub_str) or datetime.now(timezone.utc)
 
-            # Skip articles we already stored
             if link and link in already_seen_urls:
                 continue
 
             total_seen += 1
 
-            # ── LAYER 2 FILTER ──
             if not is_bitcoin_article(title, desc):
-                print(f"    ✗ SKIP (not Bitcoin): {title[:70]}")
+                print(f"    x SKIP (not Bitcoin): {title[:70]}")
                 continue
 
             total_passed += 1
@@ -162,7 +157,6 @@ def parse_date(date_str: str):
 
 
 def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_end: datetime):
-    """Send Bitcoin-only headlines to Gemini to write one original Malay article."""
     if not bitcoin_articles:
         return None
 
@@ -175,7 +169,6 @@ def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_en
 
     period_label = f"{period_start.strftime('%d %b %Y, %H:%M')} – {period_end.strftime('%H:%M')} UTC"
 
-    # ── LAYER 3: PROMPT ENFORCEMENT ──
     prompt = f"""Anda adalah editor berita senior di MajalahBitcoin.com — portal berita BITCOIN SAHAJA dalam Bahasa Melayu.
 
 PENTING: Kami HANYA melapor tentang Bitcoin (BTC). Kami BUKAN portal kripto am.
@@ -232,18 +225,15 @@ def main():
     since = now - timedelta(hours=4, minutes=30)
 
     print(f"[{now.isoformat()}] Scanning for BITCOIN-ONLY news")
-    print(f"Layer 2: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_REJECTION_KEYWORDS)} rejection keywords\n")
+    print(f"Layer 2: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_TITLE_KEYWORDS)} altcoin rejection keywords\n")
 
-    # Load existing articles to avoid duplicates
     existing = json.loads(DATA_FILE.read_text()) if DATA_FILE.exists() else []
 
-    # Collect all URLs we already stored (from raw article links in past digests)
     already_seen = set()
     for item in existing:
         for link in item.get("articleLinks", []):
             already_seen.add(link)
 
-    # 1. Fetch + filter
     bitcoin_articles = []
     for name, url in RSS_FEEDS:
         items = fetch_rss(name, url, already_seen)
@@ -257,13 +247,11 @@ def main():
 
     print("Sending to Gemini for Malay digest...")
 
-    # 2. Write digest
     digest = write_digest(bitcoin_articles, since, now)
     if not digest:
         print("No digest produced.")
         return
 
-    # 3. Save
     item = {
         "id": f"digest_{int(now.timestamp())}",
         "titleMs": digest["titleMs"],
