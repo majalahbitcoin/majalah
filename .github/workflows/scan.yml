@@ -26,6 +26,7 @@ jobs:
       - name: Run scan
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MAX_FEED_ARTICLES: ${{ vars.MAX_FEED_ARTICLES || '3' }}
         run: python scripts/scan_news.py
 
       - name: Commit updated data
