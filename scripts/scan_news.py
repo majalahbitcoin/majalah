@@ -28,9 +28,13 @@ DATA_FILE = Path(__file__).parent.parent / "data" / "news.json"
 MAX_ARTICLES = 200
 
 # ── LAYER 1: RSS FEED SELECTION ───────────────────────────────────────────────
+# Fetch up to 30 recent items per feed (no time filter) — dedupe by URL later
 RSS_FEEDS = [
+    # Pure Bitcoin publications
     ("Bitcoin Magazine",  "https://bitcoinmagazine.com/.rss/full/"),
     ("Bitcoin.com News",  "https://news.bitcoin.com/feed/"),
+
+    # Mixed crypto — filtered heavily by Layer 2
     ("CoinDesk",          "https://www.coindesk.com/arc/outboundfeeds/rss/"),
     ("Cointelegraph",     "https://cointelegraph.com/rss"),
     ("Decrypt",           "https://decrypt.co/feed"),
@@ -51,6 +55,8 @@ BITCOIN_KEYWORDS = {
     "blockstream", "river financial", "swan bitcoin", "strike app",
 }
 
+# Titles that START WITH or ARE PRIMARILY ABOUT these → reject
+# Only applied to the title, not description — so "Bitcoin vs Ethereum" still passes
 ALTCOIN_TITLE_KEYWORDS = {
     "ethereum", "solana", "ripple", "xrp", "cardano",
     "dogecoin", "shiba inu", "avalanche", "polkadot",
@@ -61,13 +67,25 @@ ALTCOIN_TITLE_KEYWORDS = {
 
 
 def is_bitcoin_article(title: str, description: str) -> bool:
+    """
+    Returns True if the article is relevant to Bitcoin.
+
+    Logic:
+    - The word 'bitcoin' or 'btc' or any Bitcoin keyword must appear
+      somewhere in the title OR description
+    - The TITLE must not be explicitly and solely about an altcoin
+      (e.g. "Ethereum hits new high" → reject, but
+       "Bitcoin and Ethereum diverge" → keep, Gemini will focus on Bitcoin)
+    """
     title_lower = title.lower()
     combined = (title + " " + description).lower()
 
+    # Must mention Bitcoin somewhere
     has_bitcoin = any(kw in combined for kw in BITCOIN_KEYWORDS)
     if not has_bitcoin:
         return False
 
+    # Reject only if title is CLEARLY and SOLELY about an altcoin
     for kw in ALTCOIN_TITLE_KEYWORDS:
         if title_lower.startswith(kw):
             return False
@@ -76,6 +94,7 @@ def is_bitcoin_article(title: str, description: str) -> bool:
 
 
 def fetch_rss(name: str, url: str, already_seen_urls: set) -> list[dict]:
+    """Fetch RSS feed — return Bitcoin articles not already in our database."""
     items = []
     try:
         req = Request(url, headers=HEADERS)
@@ -110,13 +129,15 @@ def fetch_rss(name: str, url: str, already_seen_urls: set) -> list[dict]:
             pub_str = pub_el.text.strip() if pub_el is not None and pub_el.text else ""
             pub_dt = parse_date(pub_str) or datetime.now(timezone.utc)
 
+            # Skip articles we already stored
             if link and link in already_seen_urls:
                 continue
 
             total_seen += 1
 
+            # ── LAYER 2 FILTER ──
             if not is_bitcoin_article(title, desc):
-                print(f"    x SKIP (not Bitcoin): {title[:70]}")
+                print(f"    ✗ SKIP (not Bitcoin): {title[:70]}")
                 continue
 
             total_passed += 1
@@ -157,6 +178,7 @@ def parse_date(date_str: str):
 
 
 def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_end: datetime):
+    """Send Bitcoin-only headlines to Gemini to write one original Malay article."""
     if not bitcoin_articles:
         return None
 
@@ -169,6 +191,7 @@ def write_digest(bitcoin_articles: list[dict], period_start: datetime, period_en
 
     period_label = f"{period_start.strftime('%d %b %Y, %H:%M')} – {period_end.strftime('%H:%M')} UTC"
 
+    # ── LAYER 3: PROMPT ENFORCEMENT ──
     prompt = f"""Anda adalah editor berita senior di MajalahBitcoin.com — portal berita BITCOIN SAHAJA dalam Bahasa Melayu.
 
 PENTING: Kami HANYA melapor tentang Bitcoin (BTC). Kami BUKAN portal kripto am.
@@ -224,16 +247,23 @@ def main():
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=4, minutes=30)
 
-    print(f"[{now.isoformat()}] Scanning for BITCOIN-ONLY news")
-    print(f"Layer 2: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_TITLE_KEYWORDS)} altcoin rejection keywords\n")
+    # How many articles to send to Gemini — set MAX_FEED_ARTICLES in GitHub Actions env
+    max_articles = int(os.environ.get("MAX_FEED_ARTICLES", "10"))
 
+    print(f"[{now.isoformat()}] Scanning for BITCOIN-ONLY news")
+    print(f"Layer 2: {len(BITCOIN_KEYWORDS)} Bitcoin keywords, {len(ALTCOIN_TITLE_KEYWORDS)} altcoin rejection keywords")
+    print(f"Gemini cap: {max_articles} articles\n")
+
+    # Load existing articles to avoid duplicates
     existing = json.loads(DATA_FILE.read_text()) if DATA_FILE.exists() else []
 
+    # Collect all URLs we already stored (from raw article links in past digests)
     already_seen = set()
     for item in existing:
         for link in item.get("articleLinks", []):
             already_seen.add(link)
 
+    # 1. Fetch + filter
     bitcoin_articles = []
     for name, url in RSS_FEEDS:
         items = fetch_rss(name, url, already_seen)
@@ -241,17 +271,24 @@ def main():
 
     print(f"\nNew Bitcoin articles found: {len(bitcoin_articles)}")
 
+    # Cap how many we send to Gemini to stay within free tier token limits
+    if len(bitcoin_articles) > max_articles:
+        print(f"Capping to {max_articles} articles before sending to Gemini")
+        bitcoin_articles = bitcoin_articles[:max_articles]
+
     if not bitcoin_articles:
         print("No new Bitcoin news found. Nothing to publish.")
         return
 
     print("Sending to Gemini for Malay digest...")
 
+    # 2. Write digest
     digest = write_digest(bitcoin_articles, since, now)
     if not digest:
         print("No digest produced.")
         return
 
+    # 3. Save
     item = {
         "id": f"digest_{int(now.timestamp())}",
         "titleMs": digest["titleMs"],
