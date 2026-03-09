@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import urlopen, Request
 
-import google.generativeai as genai
+from google import genai
 
 DATA_FILE = Path(__file__).parent.parent / "data" / "articles.json"
 
@@ -92,8 +92,7 @@ def fetch_article(url: str) -> dict:
 
 def translate_with_gemini(url: str, article: dict) -> dict:
     """Send article text to Gemini for faithful Malay translation."""
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     images_info = "\n".join(f'- {img["src"]} (alt: {img["alt"]})' for img in article["images"])
     youtube_info = "\n".join(f'- https://www.youtube.com/embed/{vid}' for vid in article["youtube_ids"])
@@ -127,7 +126,7 @@ Balas HANYA dengan JSON ini (tiada markdown, tiada backticks):
   "bodyMs": "Teks penuh HTML dalam Bahasa Melayu"
 }}"""
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
     text = response.text.strip()
     text = re.sub(r"^```json\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
