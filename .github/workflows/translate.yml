@@ -1,0 +1,41 @@
+name: Translate Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Full article URL to translate into Malay'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install google-generativeai requests beautifulsoup4
+
+      - name: Translate article
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ARTICLE_URL: ${{ inputs.url }}
+        run: python scripts/translate_article.py
+
+      - name: Commit translated article
+        run: |
+          git config user.name  "MajalahBitcoin Bot"
+          git config user.email "bot@majalahbitcoin.com"
+          git add data/articles.json
+          git diff --staged --quiet || git commit -m "📖 New article translated"
+          git push

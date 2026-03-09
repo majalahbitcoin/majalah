@@ -1,1 +1,37 @@
+name: Bitcoin News Scan (Every 4 Hours)
 
+on:
+  schedule:
+    - cron: '0 0,4,8,12,16,20 * * *'   # 12am, 4am, 8am, 12pm, 4pm, 8pm UTC
+  workflow_dispatch:                      # Manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install google-generativeai
+
+      - name: Run scan
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/scan_news.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name  "MajalahBitcoin Bot"
+          git config user.email "bot@majalahbitcoin.com"
+          git add data/news.json
+          git diff --staged --quiet || git commit -m "📰 Auto-scan: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
